@@ -6,6 +6,7 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "lint": "turbo lint",
+    "start:prod": "pnpm --filter @crm/api start",
     "db:generate": "pnpm --filter @crm/api prisma:generate",
     "db:migrate": "pnpm --filter @crm/api prisma:migrate",
     "db:push": "pnpm --filter @crm/api prisma:push",
