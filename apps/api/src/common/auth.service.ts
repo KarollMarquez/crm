@@ -1,4 +1,5 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import type { Session } from '@supabase/supabase-js';
 import { SupabaseService } from '../supabase.service';
 import { JwtService } from '@nestjs/jwt';
 
@@ -9,7 +10,7 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async login(email: string, password: string) {
+  async login(email: string, password: string): Promise<Session | null> {
     // Usar Supabase Auth para login con email/contraseña
     const { data, error } = await this.supabase.getClient().auth.signInWithPassword({
       email,
@@ -41,7 +42,7 @@ export class AuthService {
     };
   }
 
-  async refreshSession(refreshToken: string) {
+  async refreshSession(refreshToken: string): Promise<Session | null> {
     const { data, error } = await this.supabase.getClient().auth.refreshSession({ refresh_token: refreshToken });
 
     if (error) throw new UnauthorizedException('Token de actualización inválido');

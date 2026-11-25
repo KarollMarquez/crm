@@ -22,7 +22,8 @@ COPY apps/api/src/ apps/api/src/
 # Generate Prisma client
 RUN pnpm --filter @crm/api prisma:generate
 
-# Build NestJS
+# Build the shared workspace package before NestJS resolves its dist entry point.
+RUN pnpm --filter @crm/shared build
 RUN pnpm --filter @crm/api build
 
 # ── runtime stage ─────────────────────────────────────────────
@@ -42,6 +43,7 @@ RUN pnpm install --frozen-lockfile --prod
 
 # Copy built output and generated prisma client
 COPY --from=builder /app/apps/api/dist        apps/api/dist
+COPY --from=builder /app/packages/shared/dist packages/shared/dist
 COPY --from=builder /app/apps/api/node_modules/.prisma apps/api/node_modules/.prisma
 COPY --from=builder /app/node_modules/.prisma          node_modules/.prisma
 
