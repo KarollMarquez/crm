@@ -1,24 +1,17 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
-import { ChatwootService } from "../chatwoot/chatwoot.service";
 import { TasksService } from "../tasks/tasks.service";
 import { decryptSecret, encryptSecret } from "../../common/crypto";
 
-const HANDOFF_HINTS = [
-  "humano",
-  "asesor",
-  "agente",
-  "persona",
-  "hablar con alguien",
-  "human",
-  "agent",
-];
+// TODO: replyToConversation usaba ChatwootService para leer y enviar mensajes.
+// Cuando el InboxService propio esté listo, reconectar aquí.
 
 @Injectable()
 export class AiService {
+  private readonly logger = new Logger(AiService.name);
+
   constructor(
     private readonly prisma: PrismaService,
-    private readonly chatwoot: ChatwootService,
     private readonly tasks: TasksService,
   ) {}
 
@@ -77,66 +70,50 @@ export class AiService {
     });
   }
 
-  async replyToConversation(organizationId: string, conversationId: number, chatwootContactId?: number) {
+  /**
+   * Responde automáticamente a una conversación entrante de WhatsApp
+   * usando el agente activo de la organización y su knowledge base.
+   *
+   * TODO: pendiente de reconectar cuando el InboxService propio esté listo.
+   * Por ahora recibe el historial de mensajes directamente como parámetro.
+   */
+  async replyToConversation(
+    organizationId: string,
+    messageHistory: { role: "user" | "assistant"; content: string }[],
+    contactId?: string,
+  ): Promise<{ reply: string } | { skipped: true; reason?: string } | { handoff: true }> {
     const agent = await this.prisma.aiAgent.findFirst({
       where: { organizationId, active: true },
       include: { knowledge: true },
     });
     if (!agent) return { skipped: true };
 
-    let contact = chatwootContactId
-      ? await this.prisma.chatwootContactLink.findUnique({
-          where: {
-            organizationId_chatwootContactId: { organizationId, chatwootContactId },
-          },
-          include: {
-            contact: {
-              include: {
-                leads: { take: 1, orderBy: { createdAt: "desc" } },
-                deals: { include: { stage: true }, take: 1 },
-              },
-            },
-          },
-        })
-      : null;
+    const lastText = messageHistory.at(-1)?.content?.toLowerCase() ?? "";
+    const HANDOFF_HINTS = ["humano", "asesor", "agente", "persona", "hablar con alguien", "human", "agent"];
 
-    const messages = await this.chatwoot.getMessages(organizationId, conversationId);
-    const lastIncoming = [...messages].reverse().find((m) => m.message_type === 0 || m.message_type === "incoming");
-    const lastText = String(lastIncoming?.content || "").toLowerCase();
     if (HANDOFF_HINTS.some((h) => lastText.includes(h))) {
-      return this.handoff(organizationId, conversationId, contact?.contactId);
+      return this.handoff(organizationId, contactId);
     }
 
-    const history = messages
-      .map((m) => `${m.sender?.name || "user"}: ${m.content || ""}`)
-      .join("\n");
     const kb = agent.knowledge.map((k) => `## ${k.title}\n${k.content}`).join("\n");
-    const crmContext = contact?.contact
-      ? JSON.stringify({
-          name: contact.contact.name,
-          lead: contact.contact.leads[0],
-          deal: contact.contact.deals[0],
-        })
-      : "";
-
     const reply = await this.complete({
       apiKey: agent.encryptedApiKey ? decryptSecret(agent.encryptedApiKey) : process.env.OPENAI_API_KEY,
       model: agent.model,
       temperature: agent.temperature,
-      system: `${agent.systemPrompt}\n\nObjetivo: ${agent.goal || ""}\nKnowledge:\n${kb}\nCRM:\n${crmContext}`,
-      user: history || lastText,
+      systemPrompt: `${agent.systemPrompt}\n\nObjetivo: ${agent.goal || ""}\n\nKnowledge:\n${kb}`,
+      history: messageHistory,
     });
 
     if (!reply) return { skipped: true, reason: "no_llm" };
-    if (HANDOFF_HINTS.some((h) => reply.toLowerCase().includes("[handoff]"))) {
-      return this.handoff(organizationId, conversationId, contact?.contactId);
+
+    if (reply.toLowerCase().includes("[handoff]")) {
+      return this.handoff(organizationId, contactId);
     }
-    await this.chatwoot.sendMessage(organizationId, conversationId, reply);
+
     return { reply };
   }
 
-  private async handoff(organizationId: string, conversationId: number, contactId?: string) {
-    await this.chatwoot.updateConversation(organizationId, conversationId, { status: "open" });
+  private async handoff(organizationId: string, contactId?: string) {
     if (contactId) {
       await this.tasks.create(organizationId, {
         title: "IA transfirió la conversación",
@@ -144,41 +121,43 @@ export class AiService {
         priority: "high",
       });
     }
-    await this.prisma.aiAgent.updateMany({
-      where: { organizationId, active: true },
-      data: { active: false },
-    });
-    return { handoff: true };
+    return { handoff: true as const };
   }
 
   private async complete(input: {
     apiKey?: string;
     model: string;
     temperature: number;
-    system: string;
-    user: string;
+    systemPrompt: string;
+    history: { role: "user" | "assistant"; content: string }[];
   }) {
     if (!input.apiKey) return null;
     const base = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
-    const res = await fetch(`${base}/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${input.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: input.model,
-        temperature: input.temperature,
-        messages: [
-          { role: "system", content: input.system },
-          { role: "user", content: input.user },
-        ],
-      }),
-    });
-    if (!res.ok) return null;
-    const json = (await res.json()) as {
-      choices?: { message?: { content?: string } }[];
-    };
-    return json.choices?.[0]?.message?.content || null;
+    try {
+      const res = await fetch(`${base}/chat/completions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${input.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: input.model,
+          temperature: input.temperature,
+          messages: [
+            { role: "system", content: input.systemPrompt },
+            ...input.history,
+          ],
+        }),
+      });
+      if (!res.ok) {
+        this.logger.error(`OpenAI error: ${res.status}`);
+        return null;
+      }
+      const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+      return json.choices?.[0]?.message?.content || null;
+    } catch (err) {
+      this.logger.error("Error calling LLM", err);
+      return null;
+    }
   }
 }

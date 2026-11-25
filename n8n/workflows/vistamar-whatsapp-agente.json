@@ -1,0 +1,614 @@
+{
+  "name": "Vista Mar — WhatsApp agente",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vistamar-whatsapp",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-10080, 1168],
+      "id": "aa000001-vistamar-webhook",
+      "name": "CRM Webhook",
+      "webhookId": "vistamar-whatsapp-crm"
+    },
+    {
+      "parameters": {
+        "jsCode": "const CONFIG = {\n  crmApiUrl: 'http://localhost:3001',\n  crmApiKey: 'crm_CAMBIAR',\n  calcomUrl: 'http://localhost:3003',\n  calcomApiKey: 'cal_live_CAMBIAR',\n  calcomEventTypeId: 1,\n  openaiApiKey: 'sk-CAMBIAR',\n  timezone: 'America/Bogota'\n};\n\nconst raw = $json.body && typeof $json.body === 'object' ? $json.body : $json;\nconst data = raw.data && typeof raw.data === 'object' ? raw.data : raw;\nconst chatInput = String(data.chatInput || data.content || '').trim();\nconst conversationId = String(data.conversationId || '');\n\nif (!chatInput || !conversationId) {\n  return [];\n}\n\nreturn [{\n  json: {\n    config: CONFIG,\n    chatInput,\n    conversationId,\n    contactId: data.contactId || null,\n    contactPublicNumber: data.contactPublicNumber || null,\n    leadId: data.leadId || null,\n    leadPublicNumber: data.leadPublicNumber || null,\n    chatwootContactId: data.chatwootContactId || null,\n    phone: data.phone || '',\n    name: data.name || '',\n    email: data.email || '',\n    stageSlug: data.stageSlug || 'nuevo'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-9856, 1168],
+      "id": "aa000002-vistamar-normalize",
+      "name": "Normalize inbound"
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "kzNZu1q2fco9vusu",
+          "mode": "list",
+          "cachedResultName": "buffer_vistamar",
+          "cachedResultUrl": "/projects/KKZ9uMSmuqvFsVAh/datatables/kzNZu1q2fco9vusu"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "message": "={{ JSON.stringify({ text: $json.chatInput, contactId: $json.contactId, contactPublicNumber: $json.contactPublicNumber, leadId: $json.leadId, leadPublicNumber: $json.leadPublicNumber, chatwootContactId: $json.chatwootContactId, phone: $json.phone, name: $json.name, email: $json.email, stageSlug: $json.stageSlug }) }}",
+            "estado": "pendiente",
+            "timestamp": "={{$now}}",
+            "numero": "={{ $json.conversationId }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "message", "displayName": "message", "required": false, "defaultMatch": false, "display": true, "type": "string", "readOnly": false, "removed": false },
+            { "id": "timestamp", "displayName": "timestamp", "required": false, "defaultMatch": false, "display": true, "type": "dateTime", "readOnly": false, "removed": false },
+            { "id": "estado", "displayName": "estado", "required": false, "defaultMatch": false, "display": true, "type": "string", "readOnly": false, "removed": false },
+            { "id": "numero", "displayName": "numero", "required": false, "defaultMatch": false, "display": true, "type": "string", "readOnly": false, "removed": false }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [-9616, 1168],
+      "id": "aa409278-dab8-45e2-b6fb-20c1fc19c53b",
+      "name": "Insert Buffer"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "kzNZu1q2fco9vusu",
+          "mode": "list",
+          "cachedResultName": "buffer_vistamar",
+          "cachedResultUrl": "/projects/KKZ9uMSmuqvFsVAh/datatables/kzNZu1q2fco9vusu"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            { "keyName": "estado", "keyValue": "procesando" },
+            { "keyName": "numero", "keyValue": "={{ $('Normalize inbound').first().json.conversationId }}" }
+          ]
+        },
+        "returnAll": true
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [-9392, 1168],
+      "id": "d45712e6-c118-4a36-b135-4fcbc293445c",
+      "name": "Get Buffer",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "692e09c3-111f-4c46-b277-f669e834e768",
+              "leftValue": "={{ $json.estado === \"procesando\" }}",
+              "rightValue": "procesando",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-9168, 1168],
+      "id": "2e8f66e6-7bc7-422c-8771-2df814514382",
+      "name": "If_procesando"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "kzNZu1q2fco9vusu",
+          "mode": "list",
+          "cachedResultName": "buffer_vistamar",
+          "cachedResultUrl": "/projects/KKZ9uMSmuqvFsVAh/datatables/kzNZu1q2fco9vusu"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            { "keyName": "estado", "keyValue": "pendiente" },
+            { "keyName": "numero", "keyValue": "={{ $('Normalize inbound').first().json.conversationId }}" }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": { "estado": "procesando" },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "message", "displayName": "message", "required": false, "defaultMatch": false, "display": true, "type": "string", "readOnly": false, "removed": true },
+            { "id": "timestamp", "displayName": "timestamp", "required": false, "defaultMatch": false, "display": true, "type": "dateTime", "readOnly": false, "removed": true },
+            { "id": "estado", "displayName": "estado", "required": false, "defaultMatch": false, "display": true, "type": "string", "readOnly": false, "removed": false },
+            { "id": "numero", "displayName": "numero", "required": false, "defaultMatch": false, "display": true, "type": "string", "readOnly": false, "removed": true }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [-8944, 1168],
+      "id": "c64677f0-97c3-4b2b-818c-4e1e4c7a2299",
+      "name": "Update row(s)"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "kzNZu1q2fco9vusu",
+          "mode": "list",
+          "cachedResultName": "buffer_vistamar",
+          "cachedResultUrl": "/projects/KKZ9uMSmuqvFsVAh/datatables/kzNZu1q2fco9vusu"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            { "keyName": "numero", "keyValue": "={{ $('Normalize inbound').first().json.conversationId }}" }
+          ]
+        },
+        "returnAll": true
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [-8720, 1168],
+      "id": "eab95106-f150-43b0-b8a0-3752150353fe",
+      "name": "Get row(s)",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "function unpack(row) {\n  try {\n    const parsed = JSON.parse(row.message);\n    if (parsed && typeof parsed === 'object' && parsed.text !== undefined) {\n      return { ...row, ...parsed };\n    }\n  } catch (e) {}\n  return { ...row, text: String(row.message || '') };\n}\n\nconst mensajes = items.map((i) => unpack(i.json));\nmensajes.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));\nconst ultimo = mensajes[mensajes.length - 1];\nif (!ultimo) {\n  return [{ json: { mensajes: [], diferencia_ms: 0 } }];\n}\nconst diferencia = Date.now() - new Date(ultimo.timestamp).getTime();\nconst first = mensajes[0];\nconst inbound = $('Normalize inbound').first().json;\nreturn [{\n  json: {\n    mensajes,\n    diferencia_ms: diferencia,\n    conversationId: inbound.conversationId || first.numero,\n    contactId: first.contactId || inbound.contactId,\n    contactPublicNumber: first.contactPublicNumber || inbound.contactPublicNumber,\n    leadId: first.leadId || inbound.leadId,\n    leadPublicNumber: first.leadPublicNumber || inbound.leadPublicNumber,\n    chatwootContactId: first.chatwootContactId || inbound.chatwootContactId,\n    phone: first.phone || inbound.phone,\n    name: first.name || inbound.name,\n    email: first.email || inbound.email,\n    stageSlug: first.stageSlug || inbound.stageSlug,\n    config: inbound.config\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-8496, 1104],
+      "id": "9900f27f-da56-4d79-aa88-6596fa225eb6",
+      "name": "Code in JavaScript2"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+                "conditions": [
+                  {
+                    "id": "948d09c3-69ee-4009-9d78-eeb4e3c6096e",
+                    "leftValue": "={{ $json.diferencia_ms }}",
+                    "rightValue": 7000,
+                    "operator": { "type": "number", "operation": "gte" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "procesar"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+                "conditions": [
+                  {
+                    "id": "be637801-69ee-456f-961e-df028429b105",
+                    "leftValue": "={{ $json.diferencia_ms }}",
+                    "rightValue": 7000,
+                    "operator": { "type": "number", "operation": "lt" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "regresar"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [-8272, 1104],
+      "id": "dd0c7b3a-19eb-41d6-840a-9d931d3144bd",
+      "name": "Switch"
+    },
+    {
+      "parameters": { "amount": 7 },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [-8048, 1264],
+      "id": "77843ad9-8341-44c7-8fa1-5da9a67853b9",
+      "name": "Wait",
+      "webhookId": "d0b49fdc-719c-414d-8ba8-5a891345093a"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $json;\nconst textos = (data.mensajes || []).map((m) => m.text || m.message).filter(Boolean);\nreturn [{\n  json: {\n    ...data,\n    mensaje: textos.join('\\n')\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-8048, 1056],
+      "id": "0f428277-5608-46d3-a117-9e76c61b5d8a",
+      "name": "Join messages"
+    },
+    {
+      "parameters": {
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "value": "kzNZu1q2fco9vusu",
+          "mode": "list",
+          "cachedResultName": "buffer_vistamar",
+          "cachedResultUrl": "/projects/KKZ9uMSmuqvFsVAh/datatables/kzNZu1q2fco9vusu"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            { "keyName": "numero", "keyValue": "={{ $('Normalize inbound').first().json.conversationId }}" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [-7824, 976],
+      "id": "f20ce804-d03a-4e2d-acec-f3b4f4814619",
+      "name": "Delete row(s)"
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch",
+        "useDataOfInput": 2
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [-7600, 1056],
+      "id": "898d6f34-5f46-4433-98e3-5a1ca2e493d5",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $json;\nconst system = [\n  'Eres el asesor comercial de Vista Mar Óptica y escribes por WhatsApp.',\n  'Debes responder al cliente, resolver dudas de lentes, monturas y exámenes visuales, y buscar agendar una cita.',\n  'Tono breve, cálido y humano. Español. 2 a 6 líneas. Sin markdown.',\n  'No inventes precios ni horarios exactos. Si no hay agenda, ofrece dejar la cita pendiente.',\n  'Si pide un humano (asesor, persona, agente), marca action=handoff.',\n  'Responde SIEMPRE en JSON con estas claves:',\n  '{\"reply\":\"texto\",\"action\":\"reply|slots|book|handoff\",\"stage\":\"contactado|interesado|cita_agendada|null\",\"bookingStart\":\"ISO-8601 o null\",\"attendeeName\":\"string o null\",\"attendeeEmail\":\"string o null\",\"slotDate\":\"YYYY-MM-DD o null\"}',\n  'action=slots cuando pida horarios (slotDate = el día, o mañana si no dijo).',\n  'action=book solo si confirmó un horario concreto ISO.',\n  'stage=interesado si pregunta productos o precios. stage=cita_agendada solo si action=book.'\n].join('\\n');\nconst user = [\n  `Cliente: ${data.name || 'sin nombre'}`,\n  `Teléfono: ${data.phone || ''}`,\n  `Email: ${data.email || ''}`,\n  `Etapa actual: ${data.stageSlug || 'nuevo'}`,\n  'Mensaje(s):',\n  data.mensaje || ''\n].join('\\n');\nreturn [{\n  json: {\n    ...data,\n    openaiMessages: [\n      { role: 'system', content: system },\n      { role: 'user', content: user }\n    ]\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-7376, 1056],
+      "id": "aa000014-build-openai",
+      "name": "Build OpenAI"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $json.config.openaiApiKey }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'gpt-4o-mini', temperature: 0.4, response_format: { type: 'json_object' }, messages: $json.openaiMessages }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-7152, 1056],
+      "id": "aa000015-openai",
+      "name": "OpenAI",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const prev = $('Build OpenAI').first().json;\nconst raw = $json.choices?.[0]?.message?.content || $json.reply || '';\nlet parsed = {};\ntry { parsed = JSON.parse(raw); } catch (e) { parsed = { reply: String(raw || 'Un momento, te confirmo con el equipo.'), action: 'reply' }; }\nconst action = ['slots', 'book', 'handoff', 'reply'].includes(parsed.action) ? parsed.action : 'reply';\nlet slotDate = parsed.slotDate;\nif (!slotDate) {\n  const d = new Date();\n  d.setDate(d.getDate() + 1);\n  slotDate = d.toISOString().slice(0, 10);\n}\nconst start = new Date(`${slotDate}T00:00:00.000Z`);\nconst end = new Date(start);\nend.setDate(end.getDate() + 1);\nreturn [{\n  json: {\n    ...prev,\n    reply: parsed.reply || 'Gracias por escribirnos. ¿En qué te ayudo?',\n    action,\n    stage: parsed.stage || null,\n    bookingStart: parsed.bookingStart || null,\n    attendeeName: parsed.attendeeName || prev.name,\n    attendeeEmail: parsed.attendeeEmail || prev.email,\n    slotDate,\n    slotStart: start.toISOString(),\n    slotEnd: end.toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-6928, 1056],
+      "id": "aa000016-parse-agent",
+      "name": "Parse agent"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+                "conditions": [
+                  {
+                    "id": "sw-slots",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "slots",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "slots"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+                "conditions": [
+                  {
+                    "id": "sw-book",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "book",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "book"
+            }
+          ]
+        },
+        "options": { "fallbackOutput": "extra" }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [-6704, 1056],
+      "id": "aa000017-switch-agent",
+      "name": "Switch Agent"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.config.calcomUrl }}/api/v1/slots?eventTypeId={{ $json.config.calcomEventTypeId }}&startTime={{ $json.slotStart }}&endTime={{ $json.slotEnd }}&apiKey={{ $json.config.calcomApiKey }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-6480, 896],
+      "id": "aa000018-cal-slots",
+      "name": "Cal.com slots",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const prev = $('Parse agent').first().json;\nconst slots = $json.slots || $json.data?.slots || {};\nconst lines = [];\nfor (const [day, arr] of Object.entries(slots)) {\n  const times = (Array.isArray(arr) ? arr : []).slice(0, 8).map((s) => {\n    const t = s.time || s;\n    try {\n      return new Date(t).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', timeZone: prev.config.timezone });\n    } catch (e) {\n      return String(t);\n    }\n  });\n  if (times.length) lines.push(`${day}: ${times.join(', ')}`);\n}\nconst reply = lines.length\n  ? `Estos horarios tengo libres:\\n${lines.join('\\n')}\\n\\nDime cuál te queda y te agendo.`\n  : (prev.reply || 'Aún no tengo horarios cargados. ¿Qué día te queda mejor y te confirmo?');\nreturn [{ json: { ...prev, reply, calcomSlots: slots } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-6256, 896],
+      "id": "aa000019-format-slots",
+      "name": "Format slots"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.config.calcomUrl }}/api/v1/bookings?apiKey={{ $json.config.calcomApiKey }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ eventTypeId: Number($json.config.calcomEventTypeId), start: $json.bookingStart, responses: { name: $json.attendeeName || $json.name || 'Cliente WhatsApp', email: $json.attendeeEmail || $json.email || ((($json.phone || '').replace(/\\D/g,'') || 'cliente') + '@vistamar.placeholder'), notes: 'Cita desde WhatsApp Vista Mar' }, metadata: { conversationId: String($json.conversationId), phone: $json.phone || '' }, timeZone: $json.config.timezone, language: 'es' }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-6480, 1216],
+      "id": "aa000020-cal-book",
+      "name": "Cal.com book",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const prev = $('Parse agent').first().json;\nconst ok = Boolean($json.id || $json.uid || $json.data?.id || $json.data?.uid);\nconst reply = ok\n  ? (prev.reply || 'Listo, quedó agendada tu cita. Te esperamos en Vista Mar Óptica.')\n  : (prev.reply || 'No pude cerrar la cita ahora. Un asesor te escribe para confirmar el horario.');\nreturn [{ json: { ...prev, reply, booked: ok, action: ok ? 'book' : prev.action } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-6256, 1216],
+      "id": "aa000021-format-book",
+      "name": "Format book"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [-6032, 1056],
+      "id": "aa000022-merge-reply",
+      "name": "Merge reply"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.config.crmApiUrl }}/api/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $json.config.crmApiKey }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ conversationId: Number($json.conversationId), content: $json.reply }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-5808, 1056],
+      "id": "aa000023-send-chatwoot",
+      "name": "Send Chatwoot",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const prev = $('Merge reply').first().json;\nlet nextStage = null;\nif (prev.booked || prev.action === 'book') nextStage = 'cita_agendada';\nelse if (prev.stage === 'interesado') nextStage = 'interesado';\nelse if (!prev.stageSlug || prev.stageSlug === 'nuevo') nextStage = 'contactado';\nif (!prev.leadPublicNumber) nextStage = null;\nreturn [{ json: { ...prev, nextStage } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-5584, 1056],
+      "id": "aa000024-decide-stage",
+      "name": "Decide stage"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "if-stage",
+              "leftValue": "={{ Boolean($json.nextStage) }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-5360, 976],
+      "id": "aa000025-if-stage",
+      "name": "If_stage"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $json.config.crmApiUrl }}/api/v1/leads/{{ $json.leadPublicNumber }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $json.config.crmApiKey }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ stage: $json.nextStage }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-5136, 896],
+      "id": "aa000026-patch-lead",
+      "name": "PATCH lead",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "if-handoff",
+              "leftValue": "={{ $json.action === \"handoff\" }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-5360, 1216],
+      "id": "aa000027-if-handoff",
+      "name": "If_handoff"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.config.crmApiUrl }}/api/v1/contacts/{{ $json.contactPublicNumber }}/notes",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $json.config.crmApiKey }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ body: 'Handoff WhatsApp: el cliente pidió un asesor humano.' }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-5136, 1216],
+      "id": "aa000028-post-note",
+      "name": "POST note",
+      "continueOnFail": true
+    }
+  ],
+  "connections": {
+    "CRM Webhook": { "main": [[{ "node": "Normalize inbound", "type": "main", "index": 0 }]] },
+    "Normalize inbound": { "main": [[{ "node": "Insert Buffer", "type": "main", "index": 0 }]] },
+    "Insert Buffer": { "main": [[{ "node": "Get Buffer", "type": "main", "index": 0 }]] },
+    "Get Buffer": { "main": [[{ "node": "If_procesando", "type": "main", "index": 0 }]] },
+    "If_procesando": {
+      "main": [
+        [],
+        [{ "node": "Update row(s)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Update row(s)": { "main": [[{ "node": "Get row(s)", "type": "main", "index": 0 }]] },
+    "Get row(s)": { "main": [[{ "node": "Code in JavaScript2", "type": "main", "index": 0 }]] },
+    "Code in JavaScript2": { "main": [[{ "node": "Switch", "type": "main", "index": 0 }]] },
+    "Switch": {
+      "main": [
+        [{ "node": "Join messages", "type": "main", "index": 0 }],
+        [{ "node": "Wait", "type": "main", "index": 0 }]
+      ]
+    },
+    "Wait": { "main": [[{ "node": "Get row(s)", "type": "main", "index": 0 }]] },
+    "Join messages": {
+      "main": [
+        [
+          { "node": "Delete row(s)", "type": "main", "index": 0 },
+          { "node": "Merge", "type": "main", "index": 1 }
+        ]
+      ]
+    },
+    "Delete row(s)": { "main": [[{ "node": "Merge", "type": "main", "index": 0 }]] },
+    "Merge": { "main": [[{ "node": "Build OpenAI", "type": "main", "index": 0 }]] },
+    "Build OpenAI": { "main": [[{ "node": "OpenAI", "type": "main", "index": 0 }]] },
+    "OpenAI": { "main": [[{ "node": "Parse agent", "type": "main", "index": 0 }]] },
+    "Parse agent": { "main": [[{ "node": "Switch Agent", "type": "main", "index": 0 }]] },
+    "Switch Agent": {
+      "main": [
+        [{ "node": "Cal.com slots", "type": "main", "index": 0 }],
+        [{ "node": "Cal.com book", "type": "main", "index": 0 }],
+        [{ "node": "Merge reply", "type": "main", "index": 2 }]
+      ]
+    },
+    "Cal.com slots": { "main": [[{ "node": "Format slots", "type": "main", "index": 0 }]] },
+    "Format slots": { "main": [[{ "node": "Merge reply", "type": "main", "index": 0 }]] },
+    "Cal.com book": { "main": [[{ "node": "Format book", "type": "main", "index": 0 }]] },
+    "Format book": { "main": [[{ "node": "Merge reply", "type": "main", "index": 1 }]] },
+    "Merge reply": { "main": [[{ "node": "Send Chatwoot", "type": "main", "index": 0 }]] },
+    "Send Chatwoot": { "main": [[{ "node": "Decide stage", "type": "main", "index": 0 }]] },
+    "Decide stage": {
+      "main": [
+        [
+          { "node": "If_stage", "type": "main", "index": 0 },
+          { "node": "If_handoff", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "If_stage": { "main": [[{ "node": "PATCH lead", "type": "main", "index": 0 }], []] },
+    "If_handoff": { "main": [[{ "node": "POST note", "type": "main", "index": 0 }], []] }
+  },
+  "pinData": {},
+  "settings": { "executionOrder": "v1" },
+  "meta": { "instanceId": "d06805dde9c147b846a5a9f6231be0edd43c6531434ed0a64f079b67d631f141" }
+}

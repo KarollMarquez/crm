@@ -13,8 +13,8 @@ async function bootstrap() {
   });
   app.useGlobalFilters(new AllExceptionsFilter());
   const port = Number(process.env.API_PORT || 3001);
-  await app.listen(port, "127.0.0.1");
-  console.log(`API listening on http://127.0.0.1:${port}`);
+  await app.listen(port, "0.0.0.0");
+  console.log(`API listening on http://0.0.0.0:${port}`);
 }
 
 bootstrap();

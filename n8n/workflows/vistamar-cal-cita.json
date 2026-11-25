@@ -1,0 +1,166 @@
+{
+  "name": "Vista Mar — Cal.com cita agendada",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vistamar-cal-cita",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "id": "bb000001-cal-webhook",
+      "name": "Cal.com Webhook",
+      "webhookId": "vistamar-cal-cita"
+    },
+    {
+      "parameters": {
+        "jsCode": "const CONFIG = {\n  crmApiUrl: 'http://localhost:3001',\n  crmApiKey: 'crm_CAMBIAR'\n};\n\nconst raw = $json.body && typeof $json.body === 'object' ? $json.body : $json;\nconst trigger = String(raw.triggerEvent || raw.trigger || raw.event || '');\nif (trigger && trigger !== 'BOOKING_CREATED' && !/booking[_]?created/i.test(trigger)) {\n  return [];\n}\nconst payload = raw.payload && typeof raw.payload === 'object' ? raw.payload : raw;\nconst responses = payload.responses || {};\nconst phoneValue = responses.phone?.value || responses.smsReminderNumber?.value || payload.smsReminderNumber || '';\nconst emailValue = responses.email?.value || payload.attendees?.[0]?.email || '';\nconst nameValue = responses.name?.value || payload.attendees?.[0]?.name || '';\nconst query = String(phoneValue || emailValue || '').trim();\nif (!query) {\n  return [{ json: { config: CONFIG, foundQuery: false } }];\n}\nreturn [{\n  json: {\n    config: CONFIG,\n    foundQuery: true,\n    query,\n    phone: String(phoneValue || ''),\n    email: String(emailValue || ''),\n    name: String(nameValue || ''),\n    startTime: payload.startTime || payload.start || null,\n    title: payload.title || ''\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [224, 300],
+      "id": "bb000002-normalize-booking",
+      "name": "Normalize booking"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "if-query",
+              "leftValue": "={{ Boolean($json.foundQuery && $json.query) }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [448, 300],
+      "id": "bb000003-if-query",
+      "name": "If_query"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.config.crmApiUrl }}/api/v1/contacts?q={{ encodeURIComponent($json.query) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $json.config.crmApiKey }}" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [672, 220],
+      "id": "bb000004-get-contacts",
+      "name": "GET contacts",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const prev = $('Normalize booking').first().json;\nconst rows = $input.all().map((i) => i.json);\nconst first = rows[0];\nconst contacts = Array.isArray(first) ? first : (Array.isArray(first?.data) ? first.data : rows.filter((r) => r.publicNumber || r.id));\nconst q = String(prev.query || '').toLowerCase();\nconst digits = q.replace(/\\D/g, '');\nconst contact = contacts.find((c) => {\n  const phone = String(c.phone || '').replace(/\\D/g, '');\n  const email = String(c.email || '').toLowerCase();\n  return (digits && phone && phone.endsWith(digits.slice(-10))) || (q && email && email === q);\n}) || contacts[0];\nif (!contact) {\n  return [{ json: { ...prev, found: false } }];\n}\nconst lead = (contact.leads || [])[0];\nreturn [{\n  json: {\n    ...prev,\n    found: Boolean(lead?.publicNumber || lead?.id),\n    contactPublicNumber: contact.publicNumber,\n    leadPublicNumber: lead?.publicNumber || null,\n    contactName: contact.name\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [896, 220],
+      "id": "bb000005-pick-lead",
+      "name": "Pick lead"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "if-lead",
+              "leftValue": "={{ Boolean($json.found && $json.leadPublicNumber) }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1120, 220],
+      "id": "bb000006-if-lead",
+      "name": "If_lead"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $json.config.crmApiUrl }}/api/v1/leads/{{ $json.leadPublicNumber }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $json.config.crmApiKey }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ stage: 'cita_agendada' }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1344, 140],
+      "id": "bb000007-patch-cita",
+      "name": "PATCH cita_agendada",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.config.crmApiUrl }}/api/v1/contacts/{{ $json.contactPublicNumber }}/notes",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $json.config.crmApiKey }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ body: 'Cita Cal.com: ' + ($json.title || '') + ' ' + ($json.startTime || '') }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1568, 140],
+      "id": "bb000008-note-cita",
+      "name": "POST note cita",
+      "continueOnFail": true
+    }
+  ],
+  "connections": {
+    "Cal.com Webhook": { "main": [[{ "node": "Normalize booking", "type": "main", "index": 0 }]] },
+    "Normalize booking": { "main": [[{ "node": "If_query", "type": "main", "index": 0 }]] },
+    "If_query": { "main": [[{ "node": "GET contacts", "type": "main", "index": 0 }], []] },
+    "GET contacts": { "main": [[{ "node": "Pick lead", "type": "main", "index": 0 }]] },
+    "Pick lead": { "main": [[{ "node": "If_lead", "type": "main", "index": 0 }]] },
+    "If_lead": {
+      "main": [
+        [
+          { "node": "PATCH cita_agendada", "type": "main", "index": 0 },
+          { "node": "POST note cita", "type": "main", "index": 0 }
+        ],
+        []
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": { "executionOrder": "v1" },
+  "meta": { "instanceId": "d06805dde9c147b846a5a9f6231be0edd43c6531434ed0a64f079b67d631f141" }
+}

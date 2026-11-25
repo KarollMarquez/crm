@@ -1,0 +1,47 @@
+# Vista Mar Cal.com — separate from the CRM stack.
+# Pull only (do not start): docker compose -f infra/calcom/docker-compose.yml pull
+# Start later:            docker compose -f infra/calcom/docker-compose.yml --env-file infra/calcom/.env up -d
+# restart: "no" so a reboot / crash does not keep this stack alive.
+
+name: vistamar-calcom
+
+services:
+  database:
+    image: postgres:16-alpine
+    container_name: calcom-db
+    restart: "no"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-calcom}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-calcom}
+      POSTGRES_DB: ${POSTGRES_DB:-calcom}
+    ports:
+      - "5434:5432"
+    volumes:
+      - calcom_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-calcom} -d ${POSTGRES_DB:-calcom}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  calcom:
+    image: calcom/cal.com:latest
+    container_name: calcom
+    restart: "no"
+    ports:
+      - "3003:3000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-calcom}:${POSTGRES_PASSWORD:-calcom}@database:5432/${POSTGRES_DB:-calcom}
+      DATABASE_DIRECT_URL: postgresql://${POSTGRES_USER:-calcom}:${POSTGRES_PASSWORD:-calcom}@database:5432/${POSTGRES_DB:-calcom}
+      NEXT_PUBLIC_WEBAPP_URL: ${NEXT_PUBLIC_WEBAPP_URL:-http://localhost:3003}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3003}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-replace-with-32-plus-char-secret-key}
+      CALENDSO_ENCRYPTION_KEY: ${CALENDSO_ENCRYPTION_KEY:-replacewith32charencryptionkey1}
+      CALCOM_TELEMETRY_DISABLED: ${CALCOM_TELEMETRY_DISABLED:-1}
+      NEXT_PUBLIC_LICENSE_CONSENT: ${NEXT_PUBLIC_LICENSE_CONSENT:-agree}
+    depends_on:
+      database:
+        condition: service_healthy
+
+volumes:
+  calcom_pg:
