@@ -11,10 +11,7 @@ import { QueueModule } from './queue/queue.module';
 import { RealtimeModule } from './realtime/realtime.module';
 
 // Auth
-import { AuthService } from './common/auth.service';
-import { JwtAuthGuard } from './common/jwt-auth.guard';
-import { AuthModule } from './common/auth.module';
-import { AuthController } from './common/auth.controller';
+import { AuthModule as AccountAuthModule } from './modules/auth/auth.module';
 import { AuthGuard } from './common/auth.guard';
 import { RolesGuard } from './common/roles.guard';
 import { AuditService } from './common/audit.service';
@@ -116,11 +113,9 @@ import { WhatsAppService } from './whatsapp/whatsapp.service';
     PrismaModule,
     QueueModule,
     RealtimeModule,
-    AuthModule,
+    AccountAuthModule,
   ],
   controllers: [
-    // Auth
-    AuthController,
     // CRM core
     ContactsController,
     LeadsController,
@@ -151,13 +146,11 @@ import { WhatsAppService } from './whatsapp/whatsapp.service';
     // Global filter
     AllExceptionsFilter,
     // Guards
-    JwtAuthGuard,
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     // Core services
     AuditService,
-    AuthService,
     // CRM services
     ContactsService,
     LeadsService,

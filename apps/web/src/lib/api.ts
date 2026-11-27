@@ -37,9 +37,26 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     }
   }
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  let data: unknown = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      if (!res.ok) {
+        throw new ApiError(res.status, `Server returned a non-JSON response (${res.status})`);
+      }
+      throw new Error("Server returned a non-JSON response");
+    }
+  }
   if (!res.ok) {
-    throw new ApiError(res.status, data?.message || "Request failed");
+    const message =
+      typeof data === "object" &&
+      data !== null &&
+      "message" in data &&
+      typeof data.message === "string"
+        ? data.message
+        : "Request failed";
+    throw new ApiError(res.status, message);
   }
   return data as T;
 }
