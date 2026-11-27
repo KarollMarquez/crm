@@ -64,6 +64,7 @@ import { SegmentsService } from './modules/segments/segments.service';
 import { CampaignsController } from './modules/campaigns/campaigns.controller';
 import { CampaignsService } from './modules/campaigns/campaigns.service';
 import { CampaignsProcessor } from './modules/campaigns/campaigns.processor';
+import { ChatwootService } from './modules/chatwoot/chatwoot.service';
 
 // Automations
 import { AutomationsController } from './modules/automations/automations.controller';
@@ -171,6 +172,7 @@ import { WhatsAppService } from './whatsapp/whatsapp.service';
     SegmentsService,
     CampaignsService,
     CampaignsProcessor,
+    ChatwootService,
     // Automations
     AutomationsService,
     AutomationsProcessor,
