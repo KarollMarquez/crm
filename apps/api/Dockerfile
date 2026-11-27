@@ -51,9 +51,11 @@ COPY --from=builder /app/apps/api/dist        apps/api/dist
 COPY --from=builder /app/packages/shared/dist packages/shared/dist
 COPY --from=builder /app/generated-prisma-client /app/generated-prisma-client
 
-RUN PRISMA_PACKAGE="$(readlink -f /app/node_modules/@prisma/client)" \
+RUN PRISMA_PACKAGE="$(find /app/node_modules/.pnpm -type d -path '*/node_modules/@prisma/client' -print -quit)" \
+    && test -n "$PRISMA_PACKAGE" \
     && PRISMA_NODE_MODULES="$(dirname "$(dirname "$PRISMA_PACKAGE")")" \
     && mkdir -p "$PRISMA_NODE_MODULES/.prisma" \
+    && rm -rf "$PRISMA_NODE_MODULES/.prisma/client" \
     && cp -R /app/generated-prisma-client "$PRISMA_NODE_MODULES/.prisma/client"
 
 ENV NODE_ENV=production
