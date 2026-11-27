@@ -1,5 +1,5 @@
 # ── build stage ──────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 # pnpm
@@ -32,7 +32,7 @@ RUN GENERATED_PRISMA_CLIENT="$(find /app -type d -path '*/node_modules/.prisma/c
     && cp -R "$GENERATED_PRISMA_CLIENT" /app/generated-prisma-client
 
 # ── runtime stage ─────────────────────────────────────────────
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@9.12.0 --activate

@@ -5,7 +5,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 // Core
-import { SupabaseService } from './supabase.service';
+import { SupabaseModule } from './supabase.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { QueueModule } from './queue/queue.module';
 import { RealtimeModule } from './realtime/realtime.module';
@@ -111,6 +111,7 @@ import { WhatsAppService } from './whatsapp/whatsapp.service';
       signOptions: { expiresIn: process.env.JWT_EXPIRES_IN },
     }),
     ThrottlerModule.forRoot({ throttlers: [{ ttl: 60_000, limit: 120 }] }),
+    SupabaseModule,
     PrismaModule,
     QueueModule,
     RealtimeModule,
@@ -155,7 +156,6 @@ import { WhatsAppService } from './whatsapp/whatsapp.service';
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     // Core services
     AuditService,
-    SupabaseService,
     AuthService,
     // CRM services
     ContactsService,
