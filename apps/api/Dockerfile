@@ -26,6 +26,11 @@ RUN pnpm --filter @crm/api prisma:generate
 RUN pnpm --filter @crm/shared build
 RUN pnpm --filter @crm/api build
 
+# Keep Prisma's generated client in a stable path across pnpm virtual-store layouts.
+RUN GENERATED_PRISMA_CLIENT="$(find /app -type d -path '*/node_modules/.prisma/client' -print -quit)" \
+    && test -n "$GENERATED_PRISMA_CLIENT" \
+    && cp -R "$GENERATED_PRISMA_CLIENT" /app/generated-prisma-client
+
 # ── runtime stage ─────────────────────────────────────────────
 FROM node:20-alpine AS runner
 WORKDIR /app
@@ -44,8 +49,12 @@ RUN pnpm install --frozen-lockfile --prod
 # Copy built output and generated prisma client
 COPY --from=builder /app/apps/api/dist        apps/api/dist
 COPY --from=builder /app/packages/shared/dist packages/shared/dist
-COPY --from=builder /app/apps/api/node_modules/.prisma apps/api/node_modules/.prisma
-COPY --from=builder /app/node_modules/.prisma          node_modules/.prisma
+COPY --from=builder /app/generated-prisma-client /app/generated-prisma-client
+
+RUN PRISMA_PACKAGE="$(readlink -f /app/node_modules/@prisma/client)" \
+    && PRISMA_NODE_MODULES="$(dirname "$(dirname "$PRISMA_PACKAGE")")" \
+    && mkdir -p "$PRISMA_NODE_MODULES/.prisma" \
+    && cp -R /app/generated-prisma-client "$PRISMA_NODE_MODULES/.prisma/client"
 
 ENV NODE_ENV=production
 EXPOSE 3001
